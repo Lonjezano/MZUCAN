@@ -1,0 +1,879 @@
+#: include mzunimapview.kv
+#: include places.kv
+#: import SessionManager managedb
+#: import get_maker marker.Marker
+#: import class_handler managedb.class_handler
+#: import notify notification
+#: import browser webbrowser
+#: import webview webview.ServiceApp
+#: import win kivy.core.window.Window
+#: import snack kivymd.uix.snackbar.Snackbar
+
+
+<AccountPassword>:
+    orientation: "vertical"
+    spacing: "12dp"
+    size_hint_y: None
+    adaptive_height: True
+    height: 250
+
+    MDIconButton:
+        icon: "close"
+        pos_hint: {"center_x":.5, "center_y":.9}
+        on_release:
+            app.password_dialog.dismiss()
+
+    MDTextField:
+        id: old_password
+        hint_text: "Old password"
+        password: True
+
+    MDTextField:
+        id: change
+        hint_text: "New password"
+        password:True
+        on_text:
+            if self.focus: change_confirm.helper_text = "Match" if self.text == change_confirm.text\
+            else "Password do not match"
+
+    MDTextField:
+        id: change_confirm
+        hint_text: "Confirm password"
+
+        password:True
+        on_text:
+            if self.focus: self.helper_text_mode = "persistent"
+            if self.focus: self.helper_text = "Match" if self.text == change.text else "Password do not match"
+
+    MDRaisedButton:
+        text:"Change Password"
+        on_release:
+            SessionManager.change_password(old_password.text, change_confirm.text) \
+            if change_confirm.helper_text == "Match" else snack(text="confirm password", duration=1).show()
+
+<ContentDelete>:
+    id:delete_account_class
+    orientation: "vertical"
+    spacing: "12dp"
+    size_hint_y: None
+    adaptive_height: True
+    height: 150
+
+    MDIconButton:
+        icon: "close"
+        pos_hint: {"center_x":.5, "center_y":.9}
+        on_release:
+            app.delete_dialog.dismiss()
+
+    MDTextField:
+        id:delete_account_password
+        hint_text: "Confirm password"
+        password:True
+
+    MDRaisedButton:
+        text:"Delete account"
+        pos_hint: {"center_x":.5}
+        on_release:
+            app.delete_account(delete_account_password.text)
+
+<Check@MDCheckbox>:
+    group: 'group'
+    size_hint: None, None
+    size: dp(48), dp(48)
+<OneLineIconListItem>
+    divider: None
+<MDChip>
+    color:
+    selected_chip_color: app.theme_cls.bg_darkest if app.theme_cls.theme_style == "Light" else app.theme_cls.bg_dark
+
+<ItemConfirm>
+    on_release:
+        root.set_icon(check)
+        app.set_theme_option(root.text)
+
+    CheckboxRightWidget:
+        id: check
+        group: "check"
+        on_release:
+            app.set_theme_option(root.text)
+
+<Body@FloatLayout>
+    size_hint:[1, .9]
+
+<FileManager>:
+    id: file_manager
+
+<ContentCustomSheet>:
+    id: bottom_sheet_action
+    orientation: "vertical"
+    size_hint_y: None
+    size: dp(64), dp(96)
+    height: "200dp"
+
+    MDLabel:
+        text: app.header
+        color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+        halign: "center"
+
+    GridLayout:
+        cols:2
+        rows:2
+        AnchorLayout:
+            anchor_x: "center"
+            MDIconButton:
+                icon: "directions"
+                user_font_size: dp(50)
+                on_release:
+                    app.end_lat = app.ref_marker[3]
+                    app.end_lon = app.ref_marker[4]
+                    webview.start_service(webview)
+
+        AnchorLayout:
+            anchor_x: "center"
+            MDIconButton:
+                icon: "star"
+                user_font_size: dp(50)
+                on_release:
+                    bottom_sheet_action.star(app.header)
+
+        MDLabel:
+            font_style: "Caption"
+            theme_text_color: "Secondary"
+            text: "Directions"
+            halign: "center"
+        MDLabel:
+            font_style: "Caption"
+            theme_text_color: "Secondary"
+            text: "Star place"
+            halign: "center"
+
+
+Screen:
+    ScreenManager:
+        id: screen_manager
+
+
+# home page.............................................................................................................
+        Screen:
+            name: "map"
+
+            MDToolbar:
+                id: hometool
+                pos_hint: {"top": 1}
+                elevation: 10
+                title:"Mzucan"
+                md_bg_color: app.theme_cls.bg_dark
+                specific_text_color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+            BoxLayout:
+                orientation: "vertical"
+                size_hint: [1,.9]
+                MzuniMapView:
+                    id: map
+
+# splash screen.........................................................................................................
+        Screen:
+            MDSpinner:
+                color: [0,0,0,1]
+                size_hint: None, None
+                size: dp(35), dp(35)
+                pos_hint: {'center_x': .5, 'center_y': .6}
+                active: True
+            MDLabel:
+                text:"MZUCAN"
+                font_size:30
+                halign:"center"
+                valign:"center"
+
+
+# Notification..........................................................................................................
+        Screen:
+            name:"notification"
+            MDToolbar:
+                pos_hint: {"top": 1}
+                elevation: 10
+                title:"Notification"
+                md_bg_color: app.theme_cls.bg_dark
+                specific_text_color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+                left_action_items:[['chevron-left',lambda x:app.back()]]
+            FloatLayout:
+                orientation:"vertical"
+                size_hint: [1,.9]
+
+                OneLineIconListItem:
+                    id: class_notifier
+                    text: "Class"
+                    pos_hint: {"center_y":.9}
+                    on_release:
+                        class_switch.active = True if class_switch is False else False
+
+                    IconLeftWidget:
+                        icon: 'calendar'
+
+                MDSwitch:
+                    id: class_switch
+                    pos_hint: {"center_x":.8,"center_y":.9}
+                    on_active:
+                        notify.check_class_notification_status(self.active)
+
+                OneLineIconListItem:
+                    text: "Map"
+                    pos_hint: {"center_y":.8}
+                    on_release:
+                        map_switch.active = True if map_switch is False else False
+
+
+                    IconLeftWidget:
+                        icon: "google-maps"
+
+                MDSwitch:
+                    id: map_switch
+                    pos_hint: {"center_x":.8,"center_y":.8}
+                    on_active:
+                        notify.check_map_notification_status(self.active)
+
+
+# search page...........................................................................................................
+        Screen:
+            name: "search"
+            FloatLayout:
+
+                MDIconButton:
+                    icon: "arrow-left"
+                    pos_hint:{"x": 0, "center_y":.9}
+                    user_font_size: '14sp'
+                    on_release:
+                        app.back()
+                MDIconButton:
+                    id: search_close_btn
+                    icon: "close"
+                    disabled: True
+                    opacity:0
+                    user_font_size: '14sp'
+                    pos_hint:{"x": .75, "center_y":.9}
+                    on_release:
+                        app.clear("search")
+                MDIconButton:
+                    id: search_btn
+                    icon: "arrow-right"
+                    disabled: True
+                    opacity:0
+                    user_font_size: '14sp'
+                    pos_hint:{"x": .85, "center_y":.9}
+
+
+                MDTextField:
+                    id: search_field_picker
+                    pos_hint:{"center_x":.5, "center_y":.9}
+                    size_hint_x:.6
+                    on_text:
+                        list_box.clear_widgets()
+                        if self.focus: app.search() if self.text != '' else ''
+                        search_close_btn.disabled = search_btn.disabled = False if self.text else True
+                        search_close_btn.opacity = search_btn.opacity = 1 if self.text else 0
+
+                MDChooseChip:
+                    pos_hint:{"center_y":.8}
+                    MDChip:
+                        label: 'class'
+                        icon:''
+                        callback: app.search_chip
+
+                    MDChip:
+                        label: 'administration'
+                        icon: ''
+                        callback: app.search_chip
+
+                    MDChip:
+                        label:"faculty"
+                        icon:""
+                        callback: app.search_chip
+                    MDChip:
+                        label: 'department'
+                        icon: ''
+                        callback: app.search_chip
+                    MDChip:
+                        label: 'custom'
+                        icon: ''
+                        callback: app.search_chip
+                    MDChip:
+                        label: 'other'
+                        icon: ''
+                        callback: app.search_chip
+
+                ScrollView:
+                    size_hint:[1,.8]
+                    top:1
+
+                    GridLayout:
+                        id: list_box
+                        cols:1
+                        size_hint_y: None
+
+
+
+# account page..........................................................................................................
+        Screen:
+            name: "account"
+            MDToolbar:
+                id: account_toolbar
+                pos_hint: {"top": 1}
+                elevation: 10
+                title:"Account"
+                md_bg_color: app.theme_cls.bg_dark
+                specific_text_color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+                left_action_items:[['chevron-left',lambda x:app.back()]]
+            Body:
+                MDIconButton:
+                    id: close_image_view
+                    icon:"close"
+                    opacity: 0
+                    disabled: True
+                    pos_hint:{"center_x":.1, "center_y":1}
+                    on_release:
+                        pen.disabled = self.disabled = True
+                        pen.opacity = self.opacity = 0
+                        account_user_image.disabled = False
+                        account_user_image.size = [120,120]
+                        account_user_image.pos_hint = {"center_x":.5, "center_y":.8}
+                        account_user_name.opacity = account_reg_no.opacity = account_password.opacity \
+                        = account_toolbar.opacity = account_delete.opacity = request_record.opacity = 1
+                MDIconButton:
+                    id: pen
+                    icon:"pen"
+                    disabled: True
+                    opacity: 0
+                    pos_hint:{"center_x":.9, "center_y":1}
+                    on_release:
+                        app.profile_image_picker_open()
+
+                MDIconButton:
+                    id: account_user_image
+                    icon:"account"
+                    halign:"center"
+                    pos_hint:{"center_x":.5, "center_y":.8}
+                    size: [150, 150]
+                    md_bg_color: 0,0,0,.2
+                    on_release:
+                        pen.disabled = close_image_view.disabled = False
+                        self.disabled = True
+                        pen.opacity = close_image_view.opacity = 1
+                        self.size = [win.width,win.height-((win.height*20)/100)]
+                        self.pos_hint = {"center_x":.5, "center_y":.5}
+                        account_user_name.opacity = account_reg_no.opacity = account_password.opacity \
+                        = account_toolbar.opacity =request_record.opacity = account_delete.opacity = 0
+                OneLineIconListItem:
+                    id: account_user_name
+                    pos_hint:{"center_y":.6}
+                    disabled: True
+                    IconLeftWidget:
+                        icon:"account"
+
+                OneLineIconListItem:
+                    id: account_reg_no
+                    text:"BAE1816"
+                    pos_hint:{"center_y":.5}
+                    disabled:True
+                    IconLeftWidget:
+                        icon:"eye"
+                OneLineIconListItem:
+                    id: request_record
+                    text: "Request Class Record"
+                    pos_hint:{"center_y":.4}
+                    on_release:
+                        open_pdf.opacity=1
+                        open_pdf.disabled = False
+                        app.create_class_attendance_record()
+                    IconLeftWidget:
+                        icon: "download"
+
+                OneLineIconListItem:
+                    id: account_password
+                    text:"Change Password"
+                    pos_hint:{"center_y":.3}
+                    on_release:
+                        app.change_password()
+                    IconLeftWidget:
+                        icon: "lock"
+                OneLineIconListItem:
+                    id: account_delete
+                    text:"Delete account"
+                    pos_hint:{"center_y":.2}
+                    on_release:
+                        app.delete_account_confirmation_dialog()
+                    IconLeftWidget:
+                        icon: "delete"
+
+                OneLineIconListItem:
+                    id: open_pdf
+                    text:"Open record"
+                    theme_text_color: 'Custom'
+                    opacity:0
+                    disabled: True
+                    text_color: app.theme_cls.primary_color
+                    pos_hint:{"center_y":.05}
+                    on_release:
+                        browser.open('/storage/emulated/0/Download/Class Attendance.pdf')
+                    IconLeftWidget:
+                        icon: "file"
+
+
+
+# login page............................................................................................................
+        Screen:
+            name: "login"
+            MDToolbar:
+                pos_hint: {"top": 1}
+                elevation: 10
+                title:"Log in"
+                md_bg_color: app.theme_cls.bg_dark
+                specific_text_color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+                left_action_items:[['chevron-left',lambda x:app.back()]]
+            FloatLayout:
+                MDTextField:
+                    id:reg
+                    pos_hint:{"center_x":.5, "center_y":.5}
+                    size_hint_x:.8
+                    hint_text:"Student ID"
+                    helper_text: "required*"
+                    helper_text_mode: "on_focus"
+                    max_text_length: 10
+                    required: True
+                MDTextField:
+                    id:password
+                    pos_hint:{"center_x":.5, "center_y":.4}
+                    size_hint_x:.8
+                    hint_text:"Password"
+                    helper_text: "required*"
+                    helper_text_mode: "on_focus"
+                    required: True
+                    password: True
+
+
+                MDIconButton:
+                    id:show_password
+                    icon: "eye-off"
+                    pos_hint:{"x":.7,"center_y":.4}
+                    on_release:
+                        self.icon = "eye" if password.password == True else "eye-off"
+                        password.password = False if password.password == True else True
+
+                MDRoundFlatButton:
+                    pos_hint:{"center_x":.5, "center_y":.3}
+                    text: "Log in"
+                    size_hint: [.4,.05]
+                    on_release:
+                        SessionManager.login()
+
+                MDFlatButton:
+                    pos_hint:{"center_x":.8, "center_y":.8}
+                    text: "Create account"
+                    size_hint:None,None
+                    on_release:
+                        app.clear("login")
+                        root.ids.screen_manager.current = "sign up"
+                        root.ids.screen_manager.transition.direction = "up"
+
+# sign up..............................................................................................................................................................
+        Screen:
+            name: "sign up"
+            MDToolbar:
+                pos_hint: {"top": 1}
+                elevation: 10
+                title:"Sign up"
+                md_bg_color: app.theme_cls.bg_dark
+                specific_text_color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+                left_action_items:[['chevron-left',lambda x:app.back()]]
+            Body:
+                BoxLayout:
+
+                    size_hint:[1, .2]
+                    pos_hint:{"top":.9}
+                    padding:0
+                    Widget:
+                    MDIconButton:
+                        id: set_user_image
+                        icon:"account"
+                        halign:"center"
+                        size:[dp(100),dp(100)]
+                        pos_hint:{"center_x":.5, "center_y":.85}
+                        user_font_size: "30sp"
+                        md_bg_color: 0,0,0,.2
+                        on_press:
+                            app.file_manager_open()
+
+                    Widget:
+
+                MDTextField:
+                    id:first_name
+                    size_hint_x:.8
+                    hint_text:"First Name"
+                    required: True
+                    pos_hint:{"center_x":.5,"center_y":.7}
+                MDTextField:
+                    id:surname
+                    size_hint_x:.8
+                    hint_text: "Last Name"
+                    required: True
+                    pos_hint:{"center_x":.5,"center_y":.6}
+                MDTextField:
+                    id:reg_no
+                    size_hint_x:.8
+                    required: True
+                    hint_text:"Registration number"
+                    pos_hint:{"center_x":.5,"center_y":.5}
+                MDTextField:
+                    id:create_password
+                    size_hint_x:.8
+                    hint_text:"Password"
+                    helper_text:"At least 8 characters"
+                    helper_text_mode:"persistent"
+                    password:True
+                    required: True
+                    pos_hint:{"center_x":.5,"center_y":.4}
+                    on_text:
+                        app.verify_password()
+
+
+                MDTextField:
+                    id:confirm_password
+                    size_hint_x:.8
+                    hint_text:"Confirm password"
+                    helper_text: ""
+                    helper_text_mode:"persistent"
+                    required: True
+                    password:True
+                    pos_hint:{"center_x":.5,"center_y":.3}
+                    on_text:
+                        app.verify_password()
+
+                MDCheckbox:
+                    id:pass_check
+                    pos_hint:{"center_x":.26,"center_y":.2}
+                    size_hint: None,None
+                    on_active:
+                        app.show_password() #sign up page
+                MDLabel:
+                    text:"Show password"
+                    pos_hint:{"x":.3,"center_y":.2}
+                    color:[0,0,0,.6]
+                MDFillRoundFlatIconButton:
+                    icon:"account"
+                    text: "Sing up"
+                    size_hint:[.4,.05]
+                    pos_hint:{"center_x":.5,"center_y":.1}
+
+                    on_release:
+                        # data validation statements
+
+                        # password length error
+                        snack(text="Password must be 8 char long", duration=2).show() if \
+                        len(confirm_password.text) < 8 else None
+
+                        # failed to confirm password error
+                        snack(text="Password do not match", duration=2).show() if \
+                        confirm_password.helper_text != "Match" else None
+
+                        # field check status change
+                        app.field_check = True if first_name.text !="" and surname.text != "" and \
+                        reg_no.text != "" else False
+
+                        # fill all field error
+                        snack(text="fill all fields", duration=2).show() if app.field_check == False else None
+
+                        # Pass to data base handler (managedb.py) if true else display the error
+                        SessionManager.sign_up() if confirm_password.helper_text == "Match" and \
+                        len(confirm_password.text) > 7 and app.field_check == True else None
+
+                        # if user already exists error
+                        snack(text="User exists please login", duration=2).show() if app.user_check == True else None
+
+                        # change reg color to show user error
+
+
+                        # change screen if data is valid else show invalid data error
+                        root.ids.screen_manager.current = "login" if len(confirm_password.text) > 7 and \
+                        confirm_password.helper_text == "Match" and app.field_check == True \
+                        and app.user_check == False else "sign up"
+
+                        # clear the field if data is valid else display error
+                        app.clear("signup") if confirm_password.helper_text == "Match" and \
+                        len(confirm_password.text) > 7 and app.field_check == True and app.user_check == False else None
+
+
+
+# places page...........................................................................................................
+        Screen:
+            name:"places"
+            MDToolbar:
+                pos_hint: {"top": 1}
+                elevation: 10
+                title:"Places"
+                md_bg_color: app.theme_cls.bg_dark
+                specific_text_color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+                left_action_items:[['chevron-left',lambda x:app.back()]]
+            ScrollView:
+                id: place_scroll
+                size_hint: [1,.9]
+                PlacePage:
+
+# settings page.........................................................................................................
+        Screen:
+            name: "settings"
+            MDToolbar:
+                pos_hint: {"top": 1}
+                elevation: 10
+                title:"Settings"
+                md_bg_color: app.theme_cls.bg_dark
+                specific_text_color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+                left_action_items:[['chevron-left',lambda x:app.back()]]
+            Body:
+                MDIconButton:
+                    id: profile_user_image
+                    icon:"account"
+                    size:[dp(100),dp(100)]
+                    user_font_size: "50sp"
+                    pos_hint:{"center_x":.5,"center_y":.85}
+                    size_hint:[None, None]
+                    md_bg_color: 0,0,0,.2
+                    disabled: True
+
+                GridLayout:
+                    rows:7
+                    pos_hint:{"top":.7}
+                    size_hint:1,.8
+                    orientation:"vertical"
+
+                    OneLineIconListItem:
+                        id: account_access
+                        text:"Account"
+                        on_release:
+                            root.ids.screen_manager.current  = "account"
+                            root.ids.screen_manager.transition.direction = "up"
+                        IconLeftWidget:
+                            icon:"account"
+
+                    OneLineIconListItem:
+                        id: class_access
+                        text:"Classes"
+                        on_release:
+                            root.ids.screen_manager.current  = "class"
+                            root.ids.screen_manager.transition.direction = "up"
+                        IconLeftWidget:
+                            icon:"calendar"
+
+                    OneLineIconListItem:
+                        id: place_setting
+                        text:"Places"
+                        on_release:
+                            root.ids.screen_manager.current = "places"
+                            root.ids.screen_manager.transition.direction = "up"
+                        IconLeftWidget:
+                            icon:"map"
+
+                    OneLineIconListItem:
+                        id: notification_access
+                        text:"Notifications"
+                        on_release:
+                            root.ids.screen_manager.current = "notification"
+                            root.ids.screen_manager.transition.direction = "up"
+                        IconLeftWidget:
+                            icon:"bell"
+
+                    OneLineIconListItem:
+                        text:"Appearance"
+                        on_release:
+                            root.ids.screen_manager.current  = "appearance"
+                            root.ids.screen_manager.transition.direction = "up"
+                        IconLeftWidget:
+                            icon:"eye"
+
+                    OneLineIconListItem:
+                        text:"About"
+                        on_release:
+                            root.ids.screen_manager.current = "about"
+                            root.ids.screen_manager.transition.direction = "up"
+                        IconLeftWidget:
+                            icon: "information-outline"
+
+
+                    OneLineIconListItem:
+                        id: logout
+                        text: "logout"
+                        on_release:
+                            SessionManager.logout()
+                        IconLeftWidget:
+                            icon:"power"
+
+
+
+# Appearance.............................................................................................................
+        Screen:
+            name:"appearance"
+            MDToolbar:
+                pos_hint: {"top": 1}
+                elevation: 10
+                title:"Appearance"
+                md_bg_color: app.theme_cls.bg_dark
+                specific_text_color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+                left_action_items:[['chevron-left',lambda x:app.back()]]
+            FloatLayout:
+                orientation:"vertical"
+                size_hint: [1,.9]
+
+                TwoLineIconListItem:
+                    text: "Theme"
+                    secondary_text: "light"
+                    pos_hint: {"center_y":.9}
+                    on_release:
+                        app.set_theme()
+                    IconLeftWidget:
+                        icon: 'brightness-6'
+                        on_release:
+                            app.set_theme()
+
+                TwoLineIconListItem:
+                    text: "Accent"
+                    secondary_text: "default"
+                    pos_hint: {"center_y":.75}
+                    on_release: app.set_accent()
+
+                    IconLeftWidget:
+                        icon: 'invert-colors'
+
+# Class.................................................................................................................
+        Screen:
+            name:"class"
+            MDToolbar:
+                pos_hint: {"top": 1}
+                elevation: 10
+                title:"Classes"
+                md_bg_color: app.theme_cls.bg_dark
+                specific_text_color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+                left_action_items:[['chevron-left',lambda x:app.back()]]
+            GridLayout:
+                rows:2
+                size_hint:[1,.9]
+                FloatLayout:
+                    size_hint:[1,.5]
+                    MDTextField:
+                        id: class_name
+                        helper_text: "Class name"
+                        helper_text_mode: "persistent"
+                        size_hint_x:.8
+                        pos_hint:{"x":.1,"center_y":.8}
+                    MDTextField:
+                        id:day_picker
+                        # hint_text:"Day of the week" if self.text == "" else ""
+                        helper_text: "Day"
+                        helper_text_mode: "persistent"
+                        size_hint_x:.5
+                        pos_hint:{"x":.1,"center_y":.6}
+                        on_focus:
+                            app.day_menu.open()
+                            self.focus = False
+
+                    MDTextField:
+                        id: time_picker
+                        pos_hint: {'center_x': .8, 'center_y':.6}
+                        helper_text: "Time"
+                        helper_text_mode: "persistent"
+                        size_hint_x:.3
+                        on_focus:
+                            app.time_menu.open()
+                            self.focus = False
+
+
+                    MDTextField:
+                        id:classroom_picker
+                        helper_text: "Classroom"
+                        helper_text_mode: "persistent"
+                        size_hint_x:.8
+                        pos_hint:{"x":.1,"center_y":.4}
+                        on_focus:
+                            app.class_menu.open()
+                            self.focus = False
+
+                    MDFlatButton:
+                        id: class_add_btn
+                        text:"Add"
+                        pos_hint:{"x":.05,"center_y":.2}
+                        size_hint:[.2,.1]
+                        on_release:
+                            SessionManager.class_add()
+                            app.data_table_handler("show")
+
+
+                    MDFlatButton:
+                        id: class_delete_btn
+                        text:"Select"
+                        pos_hint:{"x":.3,"center_y":.2}
+                        size_hint:[.2,.1]
+                        on_release:
+                            app.delete_btn_handler(self.text)
+                            app.clear("class")
+
+                    MDFlatButton:
+                        id: class_save_btn
+                        text:"Save"
+                        pos_hint:{"x":.5,"center_y":.2}
+                        size_hint:[.2,.1]
+                        on_release:SessionManager.class_save()
+                    MDFlatButton:
+                        id: class_cancel_btn
+                        text:"Cancel"
+                        pos_hint:{"x":.75,"center_y":.2}
+                        size_hint:[.2,.1]
+                        on_release:
+                            app.data_table_handler("show")
+                            app.delete_btn_handler(self.text)
+                            app.clear("class")
+
+                ScrollView:
+                    size_hint:[1,.5]
+                    AnchorLayout:
+                        id: table
+
+        Screen:
+            name:"about"
+            MDToolbar:
+                pos_hint: {"top": 1}
+                elevation: 10
+                title:"About"
+                md_bg_color: app.theme_cls.bg_dark
+                specific_text_color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+                left_action_items:[['chevron-left',lambda x:app.back()]]
+            Body:
+                MDIconButton:
+                    icon: "files/icons/map_splash.png"
+                    pos_hint:{"center_x":.5, "center_y":.5}
+                    user_font_size: '50sp'
+                    disabled: True
+                MDLabel:
+                    text: "Mzuzu University Navigation System"
+                    font_size: 14
+                    color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+                    pos_hint:{"center_x":.5, "center_y":.65}
+                    halign: "center"
+                MDLabel:
+                    text: "Version 0.1"
+                    font_size: 14
+                    color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+                    pos_hint:{"center_y":.6}
+                    halign:"center"
+                MDLabel:
+                    text:"\xa9 2021 Lonjezo Chingayipe"
+                    font_size: 14
+                    color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+                    pos_hint:{"center_y":.35}
+                    halign: "center"
+                MDLabel:
+                    text:"https://github.com/lonjezano/MZUCAN.git"
+                    color: app.theme_cls.primary_color
+                    font_size: 12
+                    pos_hint:{"center_y":.05}
+                    halign: "center"
+                    on_touch_down:
+                        browser.open(self.text)
+
+
+

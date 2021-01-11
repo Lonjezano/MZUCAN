@@ -1,0 +1,85 @@
+#: import MapView kivy.garden.mapview.MapView
+#: import GpsBlinker gpsblinker.GpsBlinker
+#: include gpsblinker.kv
+
+<ContentMap>:
+    orientation: "vertical"
+    spacing: "12dp"
+    adaptive_height: True
+    height: 250
+
+    MDIconButton:
+        icon: "close"
+        pos_hint:{"center_x":.5}
+        on_release:
+            app.root.ids.map.dialog.dismiss()
+
+    MDTextField:
+        id: place_name
+        hint_text: "Place name"
+
+    MDTextField:
+        id: place_code
+        hint_text: "Place code"
+
+    MDRaisedButton:
+        text:"Add Place"
+        pos_hint:{"center_x":.5}
+        on_press:
+            app.root.ids.map.add_place(place_name.text, place_code.text)
+            app.root.ids.map.dialog.dismiss()
+
+
+<MzuniMapView>:
+    id : map
+    lat:-11.4220681
+    lon:33.9936049
+    max_zoom:16
+    zoom:16
+    double_tap_zoom: True
+    on_zoom:
+        self.zoom = 16 if self.zoom < 16 else self.zoom
+    on_lat:
+        self.start_getting_markers_in_fov()
+    on_lon:
+        self.start_getting_markers_in_fov()
+    GpsBlinker:
+        id: blinker
+
+
+
+    MDFloatingActionButton:
+        icon: "plus"
+        x: root.width - self.width - dp(10)
+        y: dp(110)
+        specific_text_color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+        md_bg_color: app.theme_cls.bg_dark
+        size: dp(35), dp(35)
+        elevation_normal:8
+        on_press:
+            app.root.ids.map.zoom = app.root.ids.map.zoom + 1
+
+    MDFloatingActionButton:
+        icon: "minus"
+        x: root.width - self.width - dp(10)
+        y: dp(70)
+        specific_text_color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+        md_bg_color: app.theme_cls.bg_dark
+        size: dp(35), dp(35)
+        elevation_normal:8
+        on_press:
+            app.root.ids.map.zoom = app.root.ids.map.zoom - 1
+
+    MDFloatingActionButton:
+        icon: "crosshairs-gps"
+        x: root.width - self.width - dp(10)
+        y: dp(12)
+        specific_text_color: [0,0,0,1] if app.theme_cls.theme_style == "Light" else [1,1,1,1]
+        md_bg_color: app.theme_cls.bg_dark
+        size: dp(50), dp(50)
+        elevation_normal:8
+        on_press:
+            app.root.ids.map.center_on(blinker.lat, blinker.lon)
+
+
+

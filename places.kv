@@ -1,0 +1,19 @@
+<ContentEdit>:
+    orientation: "vertical"
+    spacing: "12dp"
+
+    MDTextField:
+        id: new_place_name
+        hint_text: "New place name"
+        on_text:
+            app.edit_place_text = self.text
+
+
+
+<PlacePage>:
+    cols:1
+    adaptive_height: True
+
+
+
+
